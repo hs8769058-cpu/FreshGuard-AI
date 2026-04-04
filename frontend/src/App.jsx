@@ -1,99 +1,98 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, TriangleAlert, Thermometer, Droplets, Wind, Home, History, Settings, CheckCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { supabase } from './supabaseClient'; // 연결용 클라이언트 파일
+import './App.css'; // 현성님의 스타일 파일!
 
 function App() {
-  const [isAlert, setIsAlert] = useState(false);
-  const [fruitData, setFruitData] = useState({ temp: 24.5, humidity: 65, ethylene: "Safe" });
+  // DB에서 가져온 신선도 데이터 상자들
+  const [temp, setTemp] = useState(0); 
+  const [status, setStatus] = useState(' Checking... ');
 
-  // 1. 앱 켜지자마자 알림 권한 물어보기
   useEffect(() => {
-    if ("Notification" in window) {
-      Notification.requestPermission();
-    }
+    // 1. 처음 페이지 켰을 때 가장 최근 데이터 가져오기
+    const fetchData = async () => {
+      const { data } = await supabase
+        .from('freshness_data')
+        .select('*')
+        .order('id', { ascending: false })
+        .limit(1);
+      
+      if (data && data.length > 0) {
+        setTemp(data[0].percentage);
+        setStatus(data[0].status);
+      }
+    };
+    fetchData();
+
+    // 2. 실시간 감시 (DB에 변화 생기면 화면 슥- 업데이트)
+    const channel = supabase
+      .channel('freshness_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'freshness_data' }, (payload) => {
+        console.log('실시간 데이터 변화 감지!', payload);
+        if (payload.new) {
+          setTemp(payload.new.percentage);
+          setStatus(payload.new.status);
+        }
+      })
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, []);
 
-  // 2. 푸시 알림 쏘는 함수 (진짜 폰 상단에 뜸!)
-  const sendPush = (msg) => {
-    if (Notification.permission === "granted") {
-      new Notification("FreshGuard AI 경고", {
-        body: msg,
-        icon: "https://cdn-icons-png.flaticon.com/512/415/415733.png"
-      });
-    }
+  // 상태값('Bad', 'Fresh' 등)에 따라 디자인 색상을 바꿔주는 보너스 마법!
+  const getStatusStyle = () => {
+    if (status === 'Fresh') return { card: 'fresh-card', text: '매우 신선', icon: '✅', valueColor: '#2ecc71' };
+    if (status === 'Warning') return { card: 'warning-card', text: '주의 필요', icon: '⚠️', valueColor: '#f1c40f' };
+    if (status === 'Bad') return { card: 'bad-card', text: '매우 나쁨', icon: '🚨', valueColor: '#e74c3c' };
+    return { card: 'default-card', text: status, icon: '❓', valueColor: '#7f8c8d' }; // 데이터 대기 중
   };
 
-  // 3. 파이썬(YOLO/센서) 서버와 통신하는 핵심 로직
-  useEffect(() => {
-    const checkAIStatus = setInterval(() => {
-      // 나중에 만들 app.py 주소입니다.
-      fetch('http://localhost:8000/status')
-        .then(res => res.json())
-        .then(data => {
-          // AI가 "danger"라고 판단하면 화면을 바꾸고 푸시를 쏩니다.
-          if (data.status === 'danger' && !isAlert) {
-            setIsAlert(true);
-            sendPush(data.message);
-          } else if (data.status === 'safe') {
-            setIsAlert(false);
-          }
-        })
-        .catch(err => console.log("서버가 아직 꺼져있어요!"));
-    }, 3000); // 3초마다 체크
-
-    return () => clearInterval(checkAIStatus);
-  }, [isAlert]);
+  const styleMap = getStatusStyle();
 
   return (
-    <div style={{ maxWidth: '450px', margin: '0 auto', backgroundColor: '#f8fafc', minHeight: '100vh', paddingBottom: '80px', fontFamily: 'sans-serif' }}>
-      
-      {/* 상단바 (테스트용 클릭 기능 유지) */}
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', backgroundColor: '#ffffff', borderBottom: '1px solid #e2e8f0' }}>
-        <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '800' }}>FreshGuard <span style={{ color: '#22c55e' }}>AI</span></h1>
-        <div onClick={() => { setIsAlert(!isAlert); if(!isAlert) sendPush("바나나 부패 위험!"); }} style={{ cursor: 'pointer' }}>
-          <Bell size={24} color={isAlert ? "#ef4444" : "#64748b"} />
-        </div>
+    <div className="app-container">
+      <header className="header">
+        <h1 className="logo">FreshGuard <span style={{color: '#2ecc71'}}>AI</span></h1>
+        <div className="icon-bell">🔔</div>
       </header>
 
-      <main style={{ padding: '20px' }}>
-        {/* 상태 카드 */}
-        <div style={{ backgroundColor: isAlert ? '#fff1f2' : '#f0fdf4', padding: '24px', borderRadius: '28px', marginBottom: '25px', border: `1px solid ${isAlert ? '#fecdd3' : '#dcfce7'}`, transition: '0.5s' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-            <div style={{ backgroundColor: isAlert ? '#fb7185' : '#22c55e', padding: '8px', borderRadius: '12px' }}>
-              {isAlert ? <TriangleAlert size={20} color="white" /> : <CheckCircle size={20} color="white" />}
-            </div>
-            <span style={{ fontWeight: '700', color: isAlert ? '#e11d48' : '#15803d', fontSize: '18px' }}>
-              보관함: {isAlert ? '부패 위험' : '매우 신선'}
+      <main className="main-content">
+        {/* DB 상태값에 따라 색깔이 바뀌는 간지나는 상자 */}
+        <section className={`status-card ${styleMap.card}`}>
+          <div className="status-header">
+            <span className="status-icon">{styleMap.icon}</span>
+            <h2>보관함: {styleMap.text}</h2>
+          </div>
+          <p>AI 분석 결과: 실시간으로 신선도 데이터를 수신하고 있습니다.</p>
+        </section>
+
+        <section className="sensor-grid">
+          <div className="sensor-item">
+            <span className="sensor-label">🌡️ 신선도</span>
+            {/* DB의 percentage 숫자에 따라 색깔이 변함 */}
+            <span className="sensor-value" style={{ color: styleMap.valueColor }}>
+              {temp}%
             </span>
           </div>
-          <p style={{ margin: 0, color: isAlert ? '#4c0519' : '#064e3b' }}>
-            {isAlert ? "AI가 부패를 감지했습니다! 즉시 확인하세요." : "AI 분석 결과: 신선도가 잘 유지되고 있습니다."}
-          </p>
-        </div>
+          <div className="sensor-item">
+            <span className="sensor-label">💧 습도</span>
+            <span className="sensor-value">65%</span>
+          </div>
+          <div className="sensor-item">
+            <span className="sensor-label">🍃 에틸렌</span>
+            <span className="sensor-value">Safe</span>
+          </div>
+        </section>
 
-        {/* 센서 데이터 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '25px' }}>
-          <SensorCard icon={<Thermometer size={16} />} label="온도" value={fruitData.temp + "°C"} color="#3b82f6" />
-          <SensorCard icon={<Droplets size={16} />} label="습도" value={fruitData.humidity + "%"} color="#06b6d4" />
-          <SensorCard icon={<Wind size={16} />} label="에틸렌" value={isAlert ? "High" : "Safe"} color={isAlert ? "#e11d48" : "#22c55e"} />
-        </div>
-
-        <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px' }}>보관함 내부 과일</h3>
-        <FruitItem name="바나나" count="3개" status={isAlert ? "부패위험" : "신선"} statusColor={isAlert ? "#ef4444" : "#22c55e"} />
+        <section className="fruit-list">
+          <h3>보관함 내부 과일</h3>
+          <div className="fruit-item">
+            <span>🍎 사과</span>
+            <span className="fruit-status" style={{ color: styleMap.valueColor }}>{styleMap.text}</span>
+          </div>
+        </section>
       </main>
-
-      {/* 하단 탭 바 */}
-      <nav style={{ position: 'fixed', bottom: 0, width: '100%', maxWidth: '450px', backgroundColor: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-around', padding: '12px 0' }}>
-        <NavItem icon={<Home size={22} />} label="홈" active />
-        <NavItem icon={<History size={22} />} label="로그" />
-        <NavItem icon={<Settings size={22} />} label="설정" />
-      </nav>
     </div>
   );
 }
-
-// (컴포넌트 함수들은 이전과 동일하므로 생략 - 그대로 유지해 주세요!)
-function SensorCard({ icon, label, value, color }) { return (<div style={{ backgroundColor: '#fff', padding: '12px', borderRadius: '16px', textAlign: 'center', border: '1px solid #f1f5f9' }}><div style={{ color: color, display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>{icon}</div><div style={{ fontSize: '11px', color: '#94a3b8' }}>{label}</div><div style={{ fontSize: '14px', fontWeight: '700' }}>{value}</div></div>); }
-function FruitItem({ name, count, status, statusColor }) { return (<div style={{ backgroundColor: '#fff', padding: '16px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}><div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}><span>{name === '바나나' ? '🍌' : '🍎'}</span><div><div style={{ fontWeight: '700' }}>{name} ({count})</div></div></div><div style={{ color: statusColor, fontWeight: '800' }}>{status}</div></div>); }
-function NavItem({ icon, label, active }) { return (<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: active ? '#22c55e' : '#94a3b8' }}>{icon}<span style={{ fontSize: '11px' }}>{label}</span></div>); }
 
 export default App;
