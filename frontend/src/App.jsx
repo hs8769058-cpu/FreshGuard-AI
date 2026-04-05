@@ -3,119 +3,108 @@ import { supabase } from './supabaseClient';
 import './App.css';
 
 function App() {
-  const [temp, setTemp] = useState(0); 
-  const [status, setStatus] = useState('Checking...');
-  const [history, setHistory] = useState([]); // [추가] 과거 기록 저장용
+  const [fruitEntries, setFruitEntries] = useState([]); 
 
-  // 1. 데이터 가져오기 및 실시간 연동
   useEffect(() => {
     const fetchData = async () => {
-      // 최근 5개 데이터를 가져와서 히스토리도 보여줍니다
-      const { data } = await supabase
-        .from('freshness_data')
-        .select('*')
-        .order('id', { ascending: false })
-        .limit(5);
-      
-      if (data && data.length > 0) {
-        setTemp(data[0].percentage);
-        setStatus(data[0].status);
-        setHistory(data);
+      try {
+        const { data, error } = await supabase
+          .from('freshness_data')
+          .select('*')
+          .order('id', { ascending: false })
+          .limit(4); // 🔥 시연용으로 한 화면에 4개 딱 보이게 가져옵니다.
+        
+        if (error) throw error;
+        if (data) setFruitEntries(data);
+      } catch (err) {
+        console.error("데이터 가져오기 실패:", err);
       }
     };
     fetchData();
 
+    // 실시간 연동 (Insert 감지)
     const channel = supabase
       .channel('freshness_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'freshness_data' }, (payload) => {
-        if (payload.new) {
-          setTemp(payload.new.percentage);
-          setStatus(payload.new.status);
-          // 실시간으로 알림 띄우기 (Bad 상태일 때)
-          if (payload.new.status === 'Bad') {
-            alert("🚨 경고: 신선도가 급격히 떨어졌습니다! 확인이 필요합니다.");
-          }
-          fetchData(); // 데이터 새로고침해서 히스토리 갱신
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'freshness_data' }, (payload) => {
+        const newItem = payload.new;
+        // 알림 로직 (과숙성 직전/상함 팝업)
+        if (newItem.status === 'Bad' || newItem.percentage < 30) {
+          alert(`🚨 [경고] ${newItem.label === 'Apple' ? '사과' : '바나나'}가 상할 위험이 있습니다!`);
+        } else if (newItem.percentage < 60) {
+          alert(`⚠️ [주의] ${newItem.label === 'Banana' ? '바나나' : '사과'}가 과숙성 직전입니다.`);
         }
+        fetchData(); 
       })
       .subscribe();
 
     return () => supabase.removeChannel(channel);
   }, []);
 
-  // [수정] 신선도 수치에 따른 상세 메시지 마법
-  const getDetailMessage = (p) => {
-    if (p >= 80) return "현재 최상의 상태입니다. 천천히 드셔도 돼요!";
-    if (p >= 40) return "신선도가 떨어지고 있어요. 가급적 빨리 드세요!";
-    return "⚠️ 상했을 위험이 큽니다! 폐기를 권장합니다.";
+  // 상태 판별 함수
+  const getStatusInfo = (percentage) => {
+    const p = Number(percentage);
+    if (p < 30) return { text: '상함', color: '#e74c3c' };
+    if (p < 60) return { text: '과숙성 직전', color: '#f39c12' };
+    return { text: '양호', color: '#2ecc71' };
   };
 
-  // [수정] 상태값에 따른 스타일 및 배경색 결정
-  const getStatusStyle = () => {
-    if (temp >= 80) return { 
-      card: 'fresh-card', text: '매우 신선', icon: '✅', color: '#2ecc71', bg: '#e6fffa' 
-    };
-    if (temp >= 40) return { 
-      card: 'warning-card', text: '주의 필요', icon: '⚠️', color: '#f1c40f', bg: '#fffbe6' 
-    };
-    return { 
-      card: 'bad-card', text: '매우 나쁨', icon: '🚨', color: '#e74c3c', bg: '#fff5f5' 
-    };
+  // 날짜 표시 함수
+  const formatDate = (dateStr) => {
+    const date = dateStr ? new Date(dateStr) : new Date();
+    return `${date.getMonth() + 1}/${date.getDate()}`;
   };
 
-  const styleMap = getStatusStyle();
+  // [추가] 라벨에 따라 바나나 사진까지 완벽하게 매핑
+  const getFruitImage = (label) => {
+    const l = label?.toLowerCase(); // 대소문자 문제 방지
+    if (l === 'apple') return '/apple_sample.jpg';
+    if (l === 'banana') return '/banana_sample.jpg';
+    return '/placeholder.jpg'; // 혹시 모를 대안 사진
+  };
 
   return (
-    // 전체 배경색이 신선도에 따라 은은하게 바뀝니다!
-    <div className="app-container" style={{ backgroundColor: styleMap.bg, transition: '0.5s' }}>
+    <div className="app-container">
       <header className="header">
         <h1 className="logo">FreshGuard <span style={{color: '#2ecc71'}}>AI</span></h1>
-        <div className="icon-bell" onClick={() => alert("현재 알림이 활성화되어 있습니다.")}>🔔</div>
+        <div className="icon-bell">🔔</div>
       </header>
 
       <main className="main-content">
-        {/* 메인 카드: 메시지가 더 구체적으로 변함 */}
-        <section className={`status-card ${styleMap.card}`}>
-          <div className="status-header">
-            <span className="status-icon">{styleMap.icon}</span>
-            <h2>상태: {styleMap.text}</h2>
-          </div>
-          <p>{getDetailMessage(temp)}</p>
+        <section className="summary-section">
+          <h2>📦 실시간 보관함 현황</h2>
+          <p>AI가 카메라로 분석한 과일 상태입니다.</p>
         </section>
 
-        {/* 게이지 바 추가 (시각적 효과) */}
-        <section className="gauge-section">
-            <div className="gauge-container">
-                <div className="gauge-bar" style={{ width: `${temp}%`, backgroundColor: styleMap.color }}></div>
-            </div>
+        {/* 🔥 최적화된 십자형 그리드 배치 */}
+        <section className="fruit-grid">
+          {fruitEntries.length > 0 ? (
+            fruitEntries.map((item) => {
+              const info = getStatusInfo(item.percentage);
+              return (
+                <div key={item.id} className="fruit-grid-card">
+                  {/* 사진 컨테이너: 크기 고정 및 비율 유지 */}
+                  <div className="fruit-img-container">
+                    <img src={getFruitImage(item.label)} alt="snapshot" className="snapshot-img" />
+                    <div className="status-badge" style={{ color: info.color }}>{info.text}</div>
+                  </div>
+                  
+                  {/* 텍스트 영역: 사진 아래에 깔끔하게 배치 */}
+                  <div className="fruit-info-text">
+                    <span className="entry-date">{formatDate(item.created_at)} 입고</span>
+                    <h3 className="fruit-name">
+                      {item.label?.toLowerCase() === 'apple' ? '사과' : item.label?.toLowerCase() === 'banana' ? '바나나' : '과일'}
+                    </h3>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <p style={{gridColumn: '1 / -1', textAlign: 'center', padding: '20px'}}>데이터 수신 중...</p>
+          )}
         </section>
 
-        <section className="sensor-grid">
-          <div className="sensor-item">
-            <span className="sensor-label">🌡️ 신선도 점수</span>
-            <span className="sensor-value" style={{ color: styleMap.color }}>{temp}%</span>
-          </div>
-          <div className="sensor-item">
-            <span className="sensor-label">⏱️ 분석 주기</span>
-            <span className="sensor-value">실시간</span>
-          </div>
-        </section>
-
-        {/* [추가] 과거 기록 섹션: 교수님께 보여드리기 좋음 */}
-        <section className="history-list">
-          <h3>최근 분석 히스토리</h3>
-          {history.map((item) => (
-            <div key={item.id} className="history-item">
-              <span>#{item.id} 분석 결과</span>
-              <span style={{ fontWeight: 'bold' }}>{item.percentage}% ({item.status})</span>
-            </div>
-          ))}
-        </section>
-
-        {/* [추가] 동작하는 버튼들 */}
         <section className="action-buttons">
-            <button className="btn-refresh" onClick={() => window.location.reload()}>데이터 갱신</button>
-            <button className="btn-report" onClick={() => alert("미팅용 리포트가 생성되었습니다.")}>리포트 생성</button>
+          <button className="btn-refresh" onClick={() => window.location.reload()}>시스템 새로고침</button>
         </section>
       </main>
     </div>

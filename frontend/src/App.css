@@ -1,75 +1,72 @@
-body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f8f9fa; }
-.app-container { max-width: 480px; margin: 0 auto; min-height: 100vh; }
-.header { display: flex; justify-content: space-between; align-items: center; padding: 20px 25px; }
-.logo { margin: 0; font-size: 24px; font-weight: 800; }
-.logo span { color: #2ecc71; }
-.icon-bell { font-size: 20px; color: #7f8c8d; }
+/* 전체 레이아웃 */
+* { box-sizing: border-box; }
+body { margin: 0; background: #fafafa; font-family: 'Pretendard', sans-serif; overflow-x: hidden;}
+.app-container { max-width: 480px; margin: 0 auto; min-height: 100vh; padding: 0 15px 80px; }
 
-.main-content { padding: 0 20px 20px 20px; }
+/* 헤더 */
+.header { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; }
+.logo { font-weight: 900; font-size: 1.35rem; color: #333; margin: 0; }
+.icon-bell { font-size: 1.1rem; cursor: pointer; }
 
-/* 기본 상태 카드 스타일 */
-.status-card { border-radius: 18px; padding: 20px; margin-bottom: 25px; transition: background 0.3s; }
-.default-card { background-color: #e2e6ea; color: #495057; }
-/* Fresh일 때 초록색 간지 */
-.fresh-card { background-color: #e8f5e9; color: #2e7d32; }
-/* Bad일 때 빨간색 경고 간지 */
-.bad-card { background-color: #fce8e6; color: #c62828; }
-/* Warning일 때 노란색 간지 */
-.warning-card { background-color: #fff9db; color: #e67e22; }
+/* 섹션 타이틀 */
+.summary-section h2 { font-size: 1.25rem; font-weight: 800; margin-bottom: 3px; color: #333; }
+.summary-section p { font-size: 0.85rem; color: #888; margin-top: 0; }
 
-.status-header { display: flex; align-items: center; margin-bottom: 10px; }
-.status-icon { font-size: 24px; margin-right: 12px; }
-.status-header h2 { margin: 0; font-size: 20px; font-weight: 700; }
-.status-card p { margin: 0; font-size: 14px; line-height: 1.5; }
+/* 🔥 최적화된 그리드 배치 (핵심!) */
+.fruit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 2열 배치 */
+  gap: 12px; /* 카드 간 간격 축소 */
+  margin-top: 18px;
+}
 
-.sensor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
-.sensor-item { background: white; border-radius: 16px; padding: 15px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
-.sensor-label { font-size: 12px; color: #7f8c8d; margin-bottom: 8px; }
-.sensor-value { font-size: 18px; font-weight: 700; }
+/* 그리드 카드 디자인 */
+.fruit-grid-card {
+  background: white;
+  border-radius: 18px; /* 더 둥글게 */
+  overflow: hidden; /* 사진 둥글게 깎기 */
+  box-shadow: 0 6px 15px rgba(0,0,0,0.06); /* 부드러운 그림자 */
+  transition: transform 0.2s; /* 호버 효과 */
+}
+.fruit-grid-card:hover { transform: translateY(-3px); }
 
-.fruit-list h3 { font-size: 16px; font-weight: 700; color: #495057; margin-bottom: 15px; }
-.fruit-item { background: white; border-radius: 16px; padding: 18px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
-.fruit-status { font-weight: 600; font-size: 14px; }
-
-/* 게이지 바 스타일 */
-.gauge-container {
+/* 사진 컨테이너: 크기 고정 및 비율 유지 */
+.fruit-img-container {
+  position: relative;
   width: 100%;
-  height: 12px;
-  background-color: #eee;
-  border-radius: 10px;
-  margin: 20px 0;
-  overflow: hidden;
+  aspect-ratio: 1 / 1; /* 정사각형 비율 고정 */
+}
+.snapshot-img {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; /* 사진 꽉 채우기 (깨짐 방지) */
 }
 
-.gauge-bar {
-  height: 100%;
-  transition: width 1s ease-in-out; /* 숫자가 바뀔 때 바가 슥- 움직임 */
+/* 상태 배지 (사진 위에 플로팅) */
+.status-badge {
+  position: absolute;
+  bottom: 8px; right: 8px;
+  background: rgba(255,255,255,0.92); /* 더 투명하게 */
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 11px;
 }
 
-/* 히스토리 아이템 스타일 */
-.history-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px;
-  background: white;
-  margin-bottom: 5px;
-  border-radius: 8px;
-  font-size: 14px;
+/* 텍스트 영역 (사진 아래, 글자 크기 보정) */
+.fruit-info-text {
+  padding: 14px;
+  text-align: left;
 }
+.entry-date { font-size: 10px; color: #aaa; display: block; margin-bottom: 2px; }
+.fruit-name { margin: 0; font-size: 1rem; font-weight: 800; color: #222; }
 
-/* 버튼 스타일 */
-.action-buttons {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-}
-.btn-refresh, .btn-report {
-  flex: 1;
-  padding: 12px;
-  border: none;
-  border-radius: 10px;
-  background: white;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+/* 하단 버튼 */
+.action-buttons { margin-top: 30px; display: flex; gap: 10px; }
+.btn-refresh {
+  width: 100%; padding: 15px; border-radius: 12px; border: none;
+  background: white; font-weight: bold; cursor: pointer;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+  font-size: 0.95rem;
 }
