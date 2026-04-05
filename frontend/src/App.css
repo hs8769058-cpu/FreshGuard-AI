@@ -30,3 +30,46 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 .fruit-list h3 { font-size: 16px; font-weight: 700; color: #495057; margin-bottom: 15px; }
 .fruit-item { background: white; border-radius: 16px; padding: 18px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
 .fruit-status { font-weight: 600; font-size: 14px; }
+
+/* 게이지 바 스타일 */
+.gauge-container {
+  width: 100%;
+  height: 12px;
+  background-color: #eee;
+  border-radius: 10px;
+  margin: 20px 0;
+  overflow: hidden;
+}
+
+.gauge-bar {
+  height: 100%;
+  transition: width 1s ease-in-out; /* 숫자가 바뀔 때 바가 슥- 움직임 */
+}
+
+/* 히스토리 아이템 스타일 */
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  background: white;
+  margin-bottom: 5px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+/* 버튼 스타일 */
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.btn-refresh, .btn-report {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: white;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
