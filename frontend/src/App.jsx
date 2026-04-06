@@ -6,21 +6,25 @@ function App() {
   const [fruitEntries, setFruitEntries] = useState([]); 
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('freshness_data')
-          .select('*')
-          .order('id', { ascending: false })
-          .limit(4); // 🔥 시연용으로 한 화면에 4개 딱 보이게 가져옵니다.
-        
-        if (error) throw error;
-        if (data) setFruitEntries(data);
-      } catch (err) {
-        console.error("데이터 가져오기 실패:", err);
+  // 1. 처음 켰을 때 기존 데이터 가져오기
+  fetchData();
+
+  // 2. 실시간 감시 시작 (이게 핵심!)
+  const channel = supabase
+    .channel('room1') // 방 이름 (아무거나)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'freshness_data' },
+      (payload) => {
+        console.log('데이터 들어옴!', payload);
+        // 새로운 데이터를 리스트 맨 앞에 추가!
+        setFruitEntries((prev) => [payload.new, ...prev]);
       }
-    };
-    fetchData();
+    )
+    .subscribe();
+
+  return () => supabase.removeChannel(channel);
+}, []);
 
     // 실시간 연동 (Insert 감지)
     const channel = supabase
