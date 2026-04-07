@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js'; // 패키지명 정확히 수정
+import { createClient } from '@supabase/supabase-js';
 
-// 1. Supabase 설정 (현성님 정보 유지)
 const supabaseUrl = "https://jhduyrvvnjxxrwexdquw.supabase.co";
 const supabaseKey = "sb_publishable_u7mKlPgZXlMyt-ceoTuJPA_XIWg2khr";
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -9,103 +8,71 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 function App() {
   const [fruitEntries, setFruitEntries] = useState([]);
 
-  // 데이터 로드 함수 (새로고침 없이 상태 업데이트를 위해 사용)
   const fetchData = async () => {
-    const { data, error } = await supabase
-      .from('freshness_data')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) console.error('데이터 로드 실패:', error);
-    else setFruitEntries(data || []);
+    const { data } = await supabase.from('freshness_data').select('*').order('created_at', { ascending: false });
+    setFruitEntries(data || []);
   };
 
   useEffect(() => {
-    fetchData(); // 처음 접속 시 데이터 로드
-
-    // 2. 실시간 구독 설정
-    const channel = supabase
-      .channel('realtime-inventory')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'freshness_data' },
-        (payload) => {
-          console.log('실시간 변화 감지:', payload);
-
-          if (payload.eventType === 'INSERT') {
-            // 새 데이터가 들어오면 리스트 맨 앞에 추가
-            setFruitEntries((prev) => [payload.new, ...prev]);
-          } 
-          else if (payload.eventType === 'DELETE') {
-            // 삭제된 데이터 처리 (SQL에서 REPLICA IDENTITY FULL 설정이 되어 있어야 함)
-            const deletedId = payload.old.id;
-            
-            if (deletedId) {
-              setFruitEntries((prev) => prev.filter(item => item.id !== deletedId));
-              console.log(`${deletedId}번 데이터 화면 삭제 완료`);
-            } else {
-              // 혹시라도 ID를 못 받아오면 전체 데이터를 다시 불러와서 강제 동기화
-              fetchData();
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    fetchData();
+    const channel = supabase.channel('realtime-green').on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'freshness_data' }, (p) => {
+        if (p.eventType === 'INSERT') setFruitEntries(prev => [p.new, ...prev]);
+        else if (p.eventType === 'DELETE') setFruitEntries(prev => prev.filter(i => i.id !== p.old.id));
+      }).subscribe();
+    return () => supabase.removeChannel(channel);
   }, []);
 
   return (
-    <div style={{ padding: '30px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
-      <h1 style={{ textAlign: 'center', color: '#333' }}>🍌 Smart Storage System</h1>
-      <p style={{ textAlign: 'center', color: '#666' }}>실시간 재고 현황 모니터링 중...</p>
-      <hr style={{ margin: '20px 0', border: '0.5px solid #ddd' }} />
-      
-      {fruitEntries.length === 0 ? (
-        <div style={{ textAlign: 'center', marginTop: '50px', color: '#aaa' }}>
-          <h3>현재 감지된 재고가 없습니다.</h3>
-          <p>카메라 앞에 과일을 놓아주세요.</p>
-        </div>
-      ) : (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', 
-          gap: '20px',
-          maxWidth: '1200px',
-          margin: '0 auto'
-        }}>
-          {fruitEntries.map((fruit) => (
-            <div key={fruit.id} style={{
-              backgroundColor: '#fff',
-              border: fruit.status === 'Fresh' ? '2px solid #38b2ac' : '2px solid #e53e3e',
-              padding: '20px',
-              borderRadius: '15px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              transition: 'all 0.3s ease'
-            }}>
-              <h2 style={{ marginTop: 0 }}>{fruit.label}</h2>
-              <p>품질 지수: <strong style={{ fontSize: '1.2rem' }}>{fruit.percentage}%</strong></p>
-              <p>상태: 
+    <div style={{ padding: '40px 20px', backgroundColor: '#f0f7f4', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+      {/* 초록색 메인 타이틀 */}
+      <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+        <h1 style={{ color: '#2d6a4f', fontSize: '2.5rem', fontWeight: '800', letterSpacing: '-1px' }}>Freshness Monitor</h1>
+        <div style={{ height: '5px', width: '50px', backgroundColor: '#52b788', margin: '0 auto', borderRadius: '10px' }}></div>
+      </div>
+
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+        gap: '25px', 
+        maxWidth: '1200px', 
+        margin: '0 auto' 
+      }}>
+        {fruitEntries.map((fruit) => (
+          <div key={fruit.id} style={{
+            backgroundColor: '#fff',
+            borderRadius: '24px',
+            overflow: 'hidden',
+            boxShadow: '0 15px 30px rgba(0,0,0,0.05)',
+            border: '1px solid #e9f5ee'
+          }}>
+            {/* 실시간으로 찍힌 바나나 사진 */}
+            {fruit.image_data ? (
+              <img src={fruit.image_data} style={{ width: '100%', height: '220px', objectFit: 'cover' }} alt="Live Capture" />
+            ) : (
+              <div style={{ width: '100%', height: '220px', backgroundColor: '#f8f9fa' }} />
+            )}
+
+            <div style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h2 style={{ margin: 0, color: '#1b4332', fontSize: '1.5rem' }}>{fruit.label}</h2>
                 <span style={{ 
-                  marginLeft: '10px',
-                  padding: '4px 10px',
-                  borderRadius: '20px',
-                  backgroundColor: fruit.status === 'Fresh' ? '#e6fffa' : '#fff5f5',
-                  color: fruit.status === 'Fresh' ? '#2c7a7b' : '#c53030',
-                  fontWeight: 'bold'
-                }}>
-                  {fruit.status === 'Fresh' ? '양호' : '관리필요'}
-                </span>
-              </p>
-              <div style={{ marginTop: '15px', fontSize: '0.85rem', color: '#888' }}>
-                감지 시각: {new Date(fruit.created_at).toLocaleTimeString()}
+                  padding: '6px 14px', 
+                  borderRadius: '20px', 
+                  backgroundColor: '#d8f3dc', 
+                  color: '#2d6a4f', 
+                  fontSize: '0.85rem', 
+                  fontWeight: 'bold' 
+                }}>신선함</span>
+              </div>
+              <div style={{ fontSize: '0.95rem', color: '#555' }}>품질 지수: <span style={{ color: '#2d6a4f', fontWeight: '700' }}>{fruit.percentage}/100</span></div>
+              <div style={{ color: '#adb5bd', fontSize: '0.8rem', marginTop: '15px', textAlign: 'right' }}>
+                {new Date(fruit.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 입고
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
