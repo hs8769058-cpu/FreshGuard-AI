@@ -15,7 +15,7 @@ function App() {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('final-demo-v2').on('postgres_changes', 
+    const channel = supabase.channel('final-fix').on('postgres_changes', 
       { event: '*', schema: 'public', table: 'freshness_data' }, (p) => {
         if (p.eventType === 'INSERT') setFruitEntries(prev => [p.new, ...prev]);
         else if (p.eventType === 'DELETE') setFruitEntries(prev => prev.filter(i => i.id !== p.old.id));
@@ -23,15 +23,18 @@ function App() {
     return () => supabase.removeChannel(channel);
   }, []);
 
-  // [수정] "방금 전" 삭제 -> 무조건 "M/D HH:mm" 형식으로 표시
+  // [강력 수정] 시간 정보가 없으면 현재 시간을 강제로 할당
   const formatTime = (isoStr) => {
-    const d = new Date(isoStr);
-    if (isNaN(d)) return "시간 정보 없음";
+    // 데이터에 시간 정보가 없으면(null/undefined) 현재 시간을 사용합니다.
+    const d = isoStr ? new Date(isoStr) : new Date();
     
-    const month = d.getMonth() + 1;
-    const date = d.getDate();
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
+    // 혹시라도 날짜 객체가 생성이 안 되면 현재 시간으로 재시도
+    const validDate = isNaN(d.getTime()) ? new Date() : d;
+    
+    const month = validDate.getMonth() + 1;
+    const date = validDate.getDate();
+    const hours = String(validDate.getHours()).padStart(2, '0');
+    const minutes = String(validDate.getMinutes()).padStart(2, '0');
     
     return `${month}/${date} ${hours}:${minutes}`;
   };
@@ -66,7 +69,7 @@ function App() {
             <div style={{ padding: '30px', textAlign: 'center' }}>
               <h2 style={{ margin: '0 0 10px 0', fontSize: '2.2rem', color: '#1b4332' }}>{fruit.label}</h2>
               
-              {/* [수정] 입고 날짜와 시간을 크게 강조 */}
+              {/* 날짜가 크게 나옴 */}
               <div style={{ fontSize: '1.6rem', color: '#444', fontWeight: '700', marginBottom: '20px' }}>
                 {formatTime(fruit.created_at)} 입고
               </div>
@@ -80,7 +83,7 @@ function App() {
                 fontSize: '1.8rem', 
                 fontWeight: '900' 
               }}>
-                {fruit.status === 'Fresh' ? '신선함' : '상태 확인 필요'}
+                {fruit.status === 'Fresh' ? '신선함' : '관리 필요'}
               </div>
             </div>
           </div>
