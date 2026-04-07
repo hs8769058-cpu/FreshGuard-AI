@@ -17,9 +17,9 @@ missing_counter = 0
 detection_counter = 0
 
 # [조절 포인트] 시연 환경에 따라 아래 숫자를 조절하세요.
-CONFIRM_THRESHOLD = 3       # 3번 연속 99% 확신이 들어야 "입고" 처리
-MISSING_LIMIT = 30          # 30프레임(약 3~5초) 동안 안 보여야 "삭제" 처리
-CONFIDENCE_LEVEL = 0.99     # 99% 확신할 때만 인식 (지갑/폰 무시용)
+CONFIRM_THRESHOLD = 10     # 10프레임 이상 계속 보일 때만 '진짜 바나나'로 인정 (지갑 방어)
+MISSING_LIMIT = 30         # 30프레임 이상 안 보일 때만 '삭제'
+CONFIDENCE_LEVEL = 0.85    # 85% 정도로 낮춰서 반대 방향도 잡게 함
 
 print(f"🍌 [지능형 감시 시스템] {CONFIDENCE_LEVEL*100}% 확신 모드 가동 중...")
 
