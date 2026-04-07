@@ -6,31 +6,22 @@ function App() {
   const [fruitEntries, setFruitEntries] = useState([]); 
 
  useEffect(() => {
-  // 1. 처음 켰을 때 데이터 가져오기
-  const fetchData = async () => {
-    const { data } = await supabase
-      .from('freshness_data')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setFruitEntries(data || []);
-  };
-  fetchData();
+  fetchData(); // 초기 데이터 로드
 
-  // 2. 실시간 감시 (INSERT, DELETE 모두 즉시 대응)
   const channel = supabase
-    .channel('schema-db-changes')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'freshness_data' },
+    .channel('realtime-fruit')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'freshness_data' }, 
       (payload) => {
-        console.log('실시간 변화 감지:', payload);
+        console.log('변화 감지:', payload);
         
         if (payload.eventType === 'INSERT') {
-          // 새로 추가된 경우 리스트 맨 앞에 즉시 추가
+          // 추가됐을 때: 리스트 앞에 즉시 추가
           setFruitEntries((prev) => [payload.new, ...prev]);
         } 
         else if (payload.eventType === 'DELETE') {
-          // 삭제된 경우, ID를 대조해서 내 화면에서 즉시 제거 (가장 빠름)
+          // 삭제됐을 때: 내 화면 리스트에서도 해당 ID를 가진 놈을 즉시 제거
+          // (payload.old.id를 써야 정확히 지워집니다!)
           setFruitEntries((prev) => prev.filter(item => item.id !== payload.old.id));
         }
       }
@@ -39,7 +30,6 @@ function App() {
 
   return () => supabase.removeChannel(channel);
 }, []);
-
     // 실시간 연동 (Insert 감지)
     const channel = supabase
       .channel('freshness_changes')
