@@ -5,20 +5,34 @@ import './App.css';
 function App() {
   const [fruitEntries, setFruitEntries] = useState([]); 
 
-  useEffect(() => {
-  // 1. 처음 켰을 때 기존 데이터 가져오기
+ useEffect(() => {
+  // 1. 처음 켰을 때 데이터 가져오기
+  const fetchData = async () => {
+    const { data } = await supabase
+      .from('freshness_data')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setFruitEntries(data || []);
+  };
   fetchData();
 
-  // 2. 실시간 감시 시작 (이게 핵심!)
+  // 2. 실시간 감시 (INSERT, DELETE 모두 즉시 대응)
   const channel = supabase
-    .channel('room1') // 방 이름 (아무거나)
+    .channel('schema-db-changes')
     .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'freshness_data' },
+      { event: '*', schema: 'public', table: 'freshness_data' },
       (payload) => {
-        console.log('데이터 들어옴!', payload);
-        // 새로운 데이터를 리스트 맨 앞에 추가!
-        setFruitEntries((prev) => [payload.new, ...prev]);
+        console.log('실시간 변화 감지:', payload);
+        
+        if (payload.eventType === 'INSERT') {
+          // 새로 추가된 경우 리스트 맨 앞에 즉시 추가
+          setFruitEntries((prev) => [payload.new, ...prev]);
+        } 
+        else if (payload.eventType === 'DELETE') {
+          // 삭제된 경우, ID를 대조해서 내 화면에서 즉시 제거 (가장 빠름)
+          setFruitEntries((prev) => prev.filter(item => item.id !== payload.old.id));
+        }
       }
     )
     .subscribe();
